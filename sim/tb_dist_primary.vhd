@@ -1,6 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
+use work.phase_correction_pkg.all;
 
 entity tb_dist_primary is end entity;
 architecture sim of tb_dist_primary is
@@ -41,18 +42,19 @@ begin
         -- primary select: must ENABLE
         send(q_in, byte_in, 16#C0#);
         ck(debug_reset='1', "0xC0 enables primary board");
-        -- payload 0 at idx0 (corr 0)
+        -- payload 0 at idx0
         send(q_in, byte_in, 0);
         ck(set_out='1', "payload written"); ck(to_integer(unsigned(address))=0,"addr0");
-        ck(to_integer(unsigned(data_out))=0, "corr idx0 = 0");
-        -- payload 2 at idx1 (corr 0)
+        ck(to_integer(unsigned(data_out))=corrected(0, 0), "corr idx0 follows active table");
+        -- payload 2 at idx1
         send(q_in, byte_in, 2);
         ck(to_integer(unsigned(address))=1,"addr1");
-        ck(to_integer(unsigned(data_out))=2, "corr idx1 = 2");
-        -- payload 2 at idx2 (corr 8)
+        ck(to_integer(unsigned(data_out))=corrected(2, 1), "corr idx1 follows active table");
+        -- payload 2 at idx2
         send(q_in, byte_in, 2);
         ck(to_integer(unsigned(address))=2,"addr2");
-        ck(to_integer(unsigned(data_out))=10, "corr idx2 = 10 (primary table)");
+        ck(to_integer(unsigned(data_out))=corrected(2, 2),
+           "corr idx2 follows active primary table");
         -- off value passes through untouched
         send(q_in, byte_in, 16#10#);
         ck(to_integer(unsigned(address))=3,"addr3");
