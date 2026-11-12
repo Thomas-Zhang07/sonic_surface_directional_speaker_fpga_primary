@@ -46,15 +46,47 @@ architecture Behavioral of AllChannels is
     signal data_out :
         STD_LOGIC_VECTOR(NBLOCKS/8-1 downto 0);
 
+    -- One frame byte carries both controls:
+    --   phase(3 downto 0)   -> phase bin 0..15
+    --   phase(7 downto 4)   -> amplitude code 0..15 (0 = legacy full scale)
+    --   byte 0x10           -> OFF (legacy code, unchanged)
+    --
+    -- The amplitude code and the centring lead are turned into the actual
+    -- trigger step once, here, and shared by all 256 instances.
+    signal s_amp_code : integer range 0 to 15;
+    signal s_width_i  : integer range 0 to 8;
+    signal s_lead     : integer range 0 to 4;
+    signal s_on_i     : integer range 0 to 15;
+    signal s_off_i    : integer range 0 to 15;
+    signal s_on_step  : STD_LOGIC_VECTOR(3 downto 0);
+    signal s_off_step : STD_LOGIC_VECTOR(3 downto 0);
+
+
+    -- Amplitude code -> pulse width in 640 kHz steps.
+    --
+    -- Fundamental amplitude is sin(pi * width / 16), maximum at width 8
+    -- (50 % duty), so only 1..8 is useful for weighting.  The code maps
+    -- linearly: 0 -> 8 (legacy "no amplitude information"), 15 -> 8, and
+    -- 1..15 -> 1..8 rounded.
+    function pulse_width(code : integer) return integer is
+    begin
+        if code = 0 or code >= 15 then
+            return 8;
+        else
+            return (code + 1) / 2;
+        end if;
+    end function;
+
 
     component PhaseLine is
         port (
-            clk     : in STD_LOGIC;
-            set     : in STD_LOGIC := '0';
-            swap    : in STD_LOGIC := '0';
-            phase   : in STD_LOGIC_VECTOR(5 downto 0);
-            counter : in STD_LOGIC_VECTOR(4 downto 0);
-            pulse   : out STD_LOGIC := '0'
+            clk      : in STD_LOGIC;
+            set      : in STD_LOGIC := '0';
+            swap     : in STD_LOGIC := '0';
+            on_step  : in STD_LOGIC_VECTOR(3 downto 0);
+            off_step : in STD_LOGIC_VECTOR(3 downto 0);
+            counter  : in STD_LOGIC_VECTOR(4 downto 0);
+            pulse    : out STD_LOGIC := '0'
         );
     end component;
 
@@ -71,6 +103,25 @@ architecture Behavioral of AllChannels is
 begin
 
     --------------------------------------------------
+    -- Frame byte decode (shared by all channels)
+    -- 0x10 stays the legacy OFF code; any other byte splits into an
+    -- amplitude nibble (high) and a phase nibble (low).
+    --------------------------------------------------
+    s_amp_code <= to_integer(unsigned(phase(7 downto 4)));
+    s_width_i  <= 0 when phase = "00010000" else pulse_width(s_amp_code);
+    -- Width-8 pulses start one step after the phase match; narrower pulses
+    -- are moved later by this lead so that their centre stays at phase+5.
+    s_lead  <= 4 - (s_width_i / 2);
+    -- Pulse is high for [on_step, off_step).  Width 0 makes them equal,
+    -- which PhaseLine treats as OFF.
+    s_on_i  <= (to_integer(unsigned(phase(3 downto 0))) + s_lead + 1) mod 16;
+    s_off_i <= (to_integer(unsigned(phase(3 downto 0))) + s_lead +
+                s_width_i + 1) mod 16;
+
+    s_on_step  <= std_logic_vector(to_unsigned(s_on_i, 4));
+    s_off_step <= std_logic_vector(to_unsigned(s_off_i, 4));
+
+    --------------------------------------------------
     -- 256个PhaseLine实例
     --------------------------------------------------
     insts : for i in 0 to NBLOCKS-1 generate
@@ -78,12 +129,13 @@ begin
 
         PhaseLine_inst : PhaseLine
             port map (
-                clk     => clk,
-                set     => s_set(i),
-                swap    => swap,
-                phase   => phase(5 downto 0),
-                counter => counter(7 downto 3),
-                pulse   => s_pulseToMux(i)
+                clk      => clk,
+                set      => s_set(i),
+                swap     => swap,
+                on_step  => s_on_step,
+                off_step => s_off_step,
+                counter  => counter(7 downto 3),
+                pulse    => s_pulseToMux(i)
             );
 
     end generate insts;

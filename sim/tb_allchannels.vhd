@@ -40,6 +40,7 @@ architecture sim of tb_allchannels is
     signal clear       : std_logic := '0';
     signal edge_count  : integer := 0;
     signal edge_period : time := 0 ns;
+    signal high_samples : integer := 0;   -- longest run of high slot samples
 
     procedure check(cond : boolean; msg : string) is
     begin
@@ -84,21 +85,33 @@ begin
         variable first      : boolean := true;
         variable cnt        : integer := 0;
         variable per        : time := 0 ns;
+        variable run        : integer := 0;
+        variable run_max    : integer := 0;
     begin
         if rising_edge(clk8) then
             if clear = '1' then
                 cnt := 0;
                 per := 0 ns;
+                run := 0;
+                run_max := 0;
                 first := true;
                 prev := '0';
             elsif prev_sel = obs_slot then
-                if music_out(obs_group) = '1' and prev = '0' then
-                    cnt := cnt + 1;
-                    if not first then
-                        per := now - last_edge;
+                if music_out(obs_group) = '1' then
+                    if prev = '0' then
+                        cnt := cnt + 1;
+                        if not first then
+                            per := now - last_edge;
+                        end if;
+                        last_edge := now;
+                        first := false;
                     end if;
-                    last_edge := now;
-                    first := false;
+                    run := run + 1;
+                    if run > run_max then
+                        run_max := run;
+                    end if;
+                else
+                    run := 0;
                 end if;
                 prev := music_out(obs_group);
             end if;
@@ -106,6 +119,7 @@ begin
         end if;
         edge_count  <= cnt;
         edge_period <= per;
+        high_samples <= run_max;
     end process;
 
     stimulus : process
@@ -122,6 +136,37 @@ begin
         check(edge_period > PULSE_PERIOD - 2 us and
               edge_period < PULSE_PERIOD + 2 us,
               "channel 0 pulse period, measured " & time'image(edge_period));
+
+        -- Amplitude nibble (high 4 bits) narrows the pulse, centred on the
+        -- phase.  Channel 0, phase 5, amplitude code 8 -> width 4 of the
+        -- 8-step full pulse; one sample per mux cycle, so 4 high samples.
+        address <= x"00";
+        phase   <= x"85";
+        set <= '1'; wait until rising_edge(clk); wait until rising_edge(clk); set <= '0';
+        wait until rising_edge(clk); wait until rising_edge(clk);
+        swap <= '1'; wait until rising_edge(clk); wait until rising_edge(clk); swap <= '0';
+        wait until rising_edge(clk); wait until rising_edge(clk);
+        wait for 30 us;
+        clear <= '1'; wait for 1 us; clear <= '0';
+        wait for 200 us;
+        check(edge_count >= 4, "amplitude-coded channel pulses, count=" &
+              integer'image(edge_count));
+        check(high_samples >= 3 and high_samples <= 5,
+              "amplitude code 8 = 4-step pulse, got " &
+              integer'image(high_samples));
+
+        -- Amplitude code 0 keeps the legacy full-scale 8-step pulse.
+        phase <= x"05";
+        set <= '1'; wait until rising_edge(clk); wait until rising_edge(clk); set <= '0';
+        wait until rising_edge(clk); wait until rising_edge(clk);
+        swap <= '1'; wait until rising_edge(clk); wait until rising_edge(clk); swap <= '0';
+        wait until rising_edge(clk); wait until rising_edge(clk);
+        wait for 30 us;
+        clear <= '1'; wait for 1 us; clear <= '0';
+        wait for 200 us;
+        check(high_samples >= 7 and high_samples <= 9,
+              "legacy full-width pulse stays 8 steps, got " &
+              integer'image(high_samples));
 
         -- Programming channel 0 off must stop it. ------------------------
         address <= x"00";

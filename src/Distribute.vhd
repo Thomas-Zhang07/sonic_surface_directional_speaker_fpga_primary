@@ -98,17 +98,24 @@ begin
 							 s_set_out <= '1';
 							 s_ByteCounter <= s_ByteCounter + 1;
 
-							 -- Phase数据处理
+							 -- Frame byte: high nibble = amplitude code,
+							 -- low nibble = phase bin.  The phase
+							 -- correction table applies to the low
+							 -- nibble only; the amplitude nibble is
+							 -- passed through unchanged (0 = legacy
+							 -- full scale, so old frames are identical).
+							 -- 0x10 remains the legacy OFF code.
 							 if q_in = "00010000" then
 								  s_data_out <= q_in;
 							 else
-								  s_data_out <= std_logic_vector(
-										to_unsigned(
-											 to_integer(unsigned(q_in)) +
-											 PHASE_CORRECTION(s_ByteCounter),
-											 8
-										)
-								  ) and "00001111";
+								  s_data_out <= q_in(7 downto 4) &
+										std_logic_vector(
+											 to_unsigned(
+												  (to_integer(unsigned(q_in(3 downto 0))) +
+													PHASE_CORRECTION(s_ByteCounter)) mod 16,
+												  4
+											 )
+										);
 							 end if;
 
 						else

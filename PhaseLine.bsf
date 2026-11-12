@@ -20,7 +20,7 @@ applicable agreement for further details.
 */
 (header "symbol" (version "1.1"))
 (symbol
-	(rect 16 16 192 160)
+	(rect 16 16 192 176)
 	(text "PhaseLine" (rect 5 0 46 12)(font "Arial" ))
 	(text "inst" (rect 8 128 20 140)(font "Arial" ))
 	(port
@@ -47,16 +47,23 @@ applicable agreement for further details.
 	(port
 		(pt 0 80)
 		(input)
-		(text "phase[5..0]" (rect 0 0 43 12)(font "Arial" ))
-		(text "phase[5..0]" (rect 21 75 64 87)(font "Arial" ))
+		(text "on_step[3..0]" (rect 0 0 57 12)(font "Arial" ))
+		(text "on_step[3..0]" (rect 21 75 78 87)(font "Arial" ))
 		(line (pt 0 80)(pt 16 80)(line_width 3))
 	)
 	(port
 		(pt 0 96)
 		(input)
-		(text "counter[4..0]" (rect 0 0 50 12)(font "Arial" ))
-		(text "counter[4..0]" (rect 21 91 71 103)(font "Arial" ))
+		(text "off_step[3..0]" (rect 0 0 60 12)(font "Arial" ))
+		(text "off_step[3..0]" (rect 21 91 81 103)(font "Arial" ))
 		(line (pt 0 96)(pt 16 96)(line_width 3))
+	)
+	(port
+		(pt 0 112)
+		(input)
+		(text "counter[4..0]" (rect 0 0 50 12)(font "Arial" ))
+		(text "counter[4..0]" (rect 21 107 71 119)(font "Arial" ))
+		(line (pt 0 112)(pt 16 112)(line_width 3))
 	)
 	(port
 		(pt 176 32)
@@ -66,6 +73,6 @@ applicable agreement for further details.
 		(line (pt 176 32)(pt 160 32)(line_width 1))
 	)
 	(drawing
-		(rectangle (rect 16 16 160 128)(line_width 1))
+		(rectangle (rect 16 16 160 144)(line_width 1))
 	)
 )

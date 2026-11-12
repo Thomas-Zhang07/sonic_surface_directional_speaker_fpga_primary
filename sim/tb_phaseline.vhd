@@ -10,10 +10,16 @@ use IEEE.numeric_std.all;
 -- makes the pulse rise at step p+1 and stay high for eight steps, so the
 -- pulse is a 50 % square wave whose edge position is the phase.
 --
+-- The entity receives the already-centred on/off step pair.  AllChannels
+-- computes them from the frame byte; this test drives them directly.  A
+-- width-w pulse for phase p is high for [p+lead+1, p+lead+w+1) with
+-- lead = 4 - w/2, so its centre stays at p+5.  Equal steps mean OFF.
+-- Amplitude and phase both take effect at swap.
+--
 -- The test also pins down two behaviours that matter for the frame format:
---   * a phase written with set is inactive until swap is pulsed
+--   * a trigger written with set is inactive until swap is pulsed
 --   * swap *exchanges* the two buffers, so a second swap without a new set
---     reverts the channel to its previous phase
+--     reverts the channel to its previous trigger
 entity tb_phaseline is
 end entity;
 
@@ -26,8 +32,9 @@ architecture sim of tb_phaseline is
     signal clk     : std_logic := '0';
     signal set     : std_logic := '0';
     signal swap    : std_logic := '0';
-    signal phase   : std_logic_vector(5 downto 0) := (others => '0');
-    signal counter : std_logic_vector(4 downto 0) := (others => '0');
+    signal on_step  : std_logic_vector(3 downto 0) := std_logic_vector(to_unsigned(1, 4));
+    signal off_step : std_logic_vector(3 downto 0) := std_logic_vector(to_unsigned(9, 4));
+    signal counter  : std_logic_vector(4 downto 0) := (others => '0');
     signal pulse   : std_logic;
     signal finished : boolean := false;
 
@@ -59,9 +66,10 @@ begin
             clk     => clk,
             set     => set,
             swap    => swap,
-            phase   => phase,
-            counter => counter,
-            pulse   => pulse
+            on_step  => on_step,
+            off_step => off_step,
+            counter  => counter,
+            pulse    => pulse
         );
 
     -- Record, for every pulse edge, the phase step at which it happened.
@@ -115,7 +123,8 @@ begin
               "phase 0 period, got " & time'image(pulse_period));
 
         -- Load phase 5: rise moves to step 6. ----------------------------
-        phase <= std_logic_vector(to_unsigned(5, 6));
+        on_step  <= std_logic_vector(to_unsigned(6, 4));
+        off_step <= std_logic_vector(to_unsigned(14, 4));
         set <= '1'; wait until rising_edge(clk); set <= '0';
         wait until rising_edge(clk);
         swap <= '1'; wait until rising_edge(clk); swap <= '0';
@@ -124,7 +133,8 @@ begin
         check(rise_pos = 6, "phase 5 rise step, got " & integer'image(rise_pos));
 
         -- Load phase 15: rise moves to step 0 (wraps). -------------------
-        phase <= std_logic_vector(to_unsigned(15, 6));
+        on_step  <= std_logic_vector(to_unsigned(0, 4));
+        off_step <= std_logic_vector(to_unsigned(8, 4));
         set <= '1'; wait until rising_edge(clk); set <= '0';
         wait until rising_edge(clk);
         swap <= '1'; wait until rising_edge(clk); swap <= '0';
@@ -133,7 +143,8 @@ begin
         check(rise_pos = 0, "phase 15 rise step, got " & integer'image(rise_pos));
 
         -- Write phase 3 without swapping: output must not change. --------
-        phase <= std_logic_vector(to_unsigned(3, 6));
+        on_step  <= std_logic_vector(to_unsigned(4, 4));
+        off_step <= std_logic_vector(to_unsigned(12, 4));
         set <= '1'; wait until rising_edge(clk); set <= '0';
         wait for 40 * CLK_PERIOD;
         check(rise_pos = 0,
@@ -151,8 +162,43 @@ begin
         check(rise_pos = 0,
               "second swap reverts to phase 15, got " & integer'image(rise_pos));
 
-        -- Off: phase 16 must produce no pulses at all. -------------------
-        phase <= std_logic_vector(to_unsigned(16, 6));
+        -- Amplitude weighting: narrower pulses stay centred on the phase.
+        -- Phase 15, width 4 -> high for steps 2..5, centre = 15+5 mod 16.
+        on_step  <= std_logic_vector(to_unsigned(2, 4));
+        off_step <= std_logic_vector(to_unsigned(6, 4));
+        set <= '1'; wait until rising_edge(clk); set <= '0';
+        wait until rising_edge(clk);
+        swap <= '1'; wait until rising_edge(clk); swap <= '0';
+        wait for 40 * CLK_PERIOD;
+        check(rise_pos = 2, "width-4 rise step, got " & integer'image(rise_pos));
+        check(high_time = 4 * CLK_PERIOD,
+              "width-4 high time, got " & time'image(high_time));
+
+        -- Width 1: high only at step 4.
+        on_step  <= std_logic_vector(to_unsigned(4, 4));
+        off_step <= std_logic_vector(to_unsigned(5, 4));
+        set <= '1'; wait until rising_edge(clk); set <= '0';
+        wait until rising_edge(clk);
+        swap <= '1'; wait until rising_edge(clk); swap <= '0';
+        wait for 40 * CLK_PERIOD;
+        check(rise_pos = 4, "width-1 rise step, got " & integer'image(rise_pos));
+        check(high_time = 1 * CLK_PERIOD,
+              "width-1 high time, got " & time'image(high_time));
+
+        -- Legacy full-scale pulse: high for steps 0..7.
+        on_step  <= std_logic_vector(to_unsigned(0, 4));
+        off_step <= std_logic_vector(to_unsigned(8, 4));
+        set <= '1'; wait until rising_edge(clk); set <= '0';
+        wait until rising_edge(clk);
+        swap <= '1'; wait until rising_edge(clk); swap <= '0';
+        wait for 40 * CLK_PERIOD;
+        check(rise_pos = 0, "legacy width rise step, got " & integer'image(rise_pos));
+        check(high_time = HIGH_STEPS * CLK_PERIOD,
+              "legacy width high time, got " & time'image(high_time));
+
+        -- Off: equal on/off steps must produce no pulses at all. ----------
+        on_step  <= std_logic_vector(to_unsigned(5, 4));
+        off_step <= std_logic_vector(to_unsigned(5, 4));
         set <= '1'; wait until rising_edge(clk); set <= '0';
         wait until rising_edge(clk);
         swap <= '1'; wait until rising_edge(clk); swap <= '0';
@@ -161,7 +207,7 @@ begin
         base := rise_count;
         wait for 100 * CLK_PERIOD;
         check(rise_count = base,
-              "phase 16 pulses " & integer'image(rise_count - base) & " times");
+              "width-0 channel pulses " & integer'image(rise_count - base) & " times");
 
         finished <= true;
         report "TEST PASSED: tb_phaseline" severity note;

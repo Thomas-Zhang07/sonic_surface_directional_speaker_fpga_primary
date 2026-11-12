@@ -55,22 +55,27 @@ begin
         ck(to_integer(unsigned(address))=2,"addr2");
         ck(to_integer(unsigned(data_out))=corrected(2, 2),
            "corr idx2 follows active primary table");
+        -- amplitude nibble passes through, phase nibble is corrected
+        send(q_in, byte_in, 16#A2#);
+        ck(to_integer(unsigned(address))=3,"addr3");
+        ck(to_integer(unsigned(data_out))=16#A0# + corrected(2, 3),
+           "amplitude nibble preserved, phase corrected");
         -- off value passes through untouched
         send(q_in, byte_in, 16#10#);
-        ck(to_integer(unsigned(address))=3,"addr3");
+        ck(to_integer(unsigned(address))=4,"addr4");
         ck(to_integer(unsigned(data_out))=16, "off 0x10 preserved");
         -- secondary select: must DISABLE this (primary) board
         send(q_in, byte_in, 16#C1#);
         ck(debug_reset='0', "0xC1 disables primary board");
         send(q_in, byte_in, 5);
         ck(set_out='0', "disabled board ignores payload");
-        ck(to_integer(unsigned(address))=3, "disabled board keeps address");
+        ck(to_integer(unsigned(address))=4, "disabled board keeps address");
         -- frame restart always recognised
         send(q_in, byte_in, 16#FE#);
         ck(set_out='0', "0xFE clears set");
         send(q_in, byte_in, 16#FD#);
         ck(swap_out='1', "0xFD asserts swap");
-        ck(to_integer(unsigned(address))=3, "0xFD keeps last address output");
+        ck(to_integer(unsigned(address))=4, "0xFD keeps last address output");
         report "TEST PASSED: tb_dist_primary" severity note;
         done <= true;
         wait;
