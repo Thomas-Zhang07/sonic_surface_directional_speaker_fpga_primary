@@ -107,7 +107,7 @@ The 5 mm x/y offset is relative to the nominal 10 mm lattice.
 
 | Primary pin | Secondary pin | Purpose |
 |---|---|---|
-| `MISC_D` (PIN_120) | `MISC_A` (PIN_65) | 40 kHz carrier sync (existing) |
+| `MISC_D` (PIN_120) | `MISC_A` (PIN_65) | 40 kHz carrier-start pulse (one clock at COUNT=0) |
 | `MISC_C` (PIN_67, to be added) | `MISC_F` (PIN_115) | Frame-staging/swap strobe (new) |
 | GND | GND | Common ground |
 
@@ -141,7 +141,7 @@ design is the common base. Change only the board role:
 
 | Item | Primary | Secondary |
 |---|---|---|
-| Carrier sync | `MISC_D` (PIN_120) output, COUNT[6] | `MISC_A` (PIN_65) input → Counter `sync_reset` |
+| Carrier sync | `MISC_D` (PIN_120) output, one-clock pulse at COUNT=0 | `MISC_A` (PIN_65) input → `SyncTrim` → Counter `sync_reset` |
 | Board select | `0xC0` enables, `0xC1` disables | `0xC1` enables, `0xC0` disables |
 | `PHASE_CORRECTION` | primary table | secondary table |
 | Frame strobe | `MISC_C` output | `MISC_F` input (**not** `MISC_B`) |
@@ -170,18 +170,24 @@ secondary correction table.
 
 ### 4.4 Fine inter-board phase trim
 
-The 16 phase bins (22.5°) are too coarse for the <1.8° trim needed for a −30 dB
-null. Add a programmable fine delay:
+**Implemented in `fpga/secondary`.**  The 16 phase bins (22.5°) are too coarse
+for a sub-degree null, so the sync path now has a 50 MHz trim:
 
-- Use the 50 MHz board clock (PIN_23) for 20 ns resolution (0.288° at 40 kHz).
-- Add a delay counter (0..255 steps) on the `MISC_A` sync edge before it resets
-  the carrier counter. Default 0.
-- Control it with a new command byte sequence, e.g.
-  `0xE0 + delay_byte` handled in `Distribute` (or a small side controller).
-  Range: 0..255 × 20 ns = 5.1 µs = 74° at 40 kHz.
-- Reset the delay to 0 on `0xFE`? Prefer persistent until changed; document.
-- Simulate: MISC_A edge + delay → counter reset; confirm the carrier phase
-  shifts by `delay × 0.288°`.
+- The primary's `MISC_D` is a **one-clock pulse at COUNT = 0** (counts 0 and
+  128), not the old `COUNT[6]` square wave.  That makes the sync edge a known
+  counter value.
+- `SyncTrim` (instantiated inside `Distribute`) uses a 2-flop synchronizer in
+  the 50 MHz domain, a 0..255 delay counter (20 ns = 0.288°), and a toggle
+  that crosses into the 5.12 MHz domain through a second synchronizer.  The
+  old majority filter is removed from the sync path; `MISC_B` (UART RX) is
+  untouched.
+- `Counter` loads 17 at the default trim (127).  Trim 0..255 spans about
+  ±36° around that point; the host sweeps it for the deepest 59° null.
+- Command: `0xE0 0x5A <value>`, accepted **only between frames** so a payload
+  byte `0xE0` is never mistaken for it.  The value is serialised to
+  `SyncTrim` (no 8-bit bus in the schematic) and persists until changed.
+- `tb_sync` checks the default alignment, the ±13-clock ends and the ~26-clock
+  range; fit is 5,679 / 6,272 LE (91 %).
 
 ### 4.5 Frame-staging/swap strobe
 
@@ -457,20 +463,21 @@ Consequences:
 
 ## 12. Status at 2026-11-13
 
-- **M1 complete.** `fpga/secondary` has the MISC_A sync input (Counter loads
-  71 to compensate the RSSFilter latency), reversed board select
-  (`0xC1` enables), the secondary correction table (permuted to wire order),
-  the removed MISC_D output, a 90 % fit, and
-  `QuadrupleBuffer_secondary.jic`.  `sim/run_sim.ps1`: all 12 tests pass,
-  including `tb_sync`.
+- **M1/M2 complete.** `fpga/secondary` has the `MISC_A` pulse sync through
+  `SyncTrim` (Counter loads 17 at trim 127), the 50 MHz fine-trim command
+  `0xE0 0x5A <value>`, reversed board select (`0xC1` enables), the secondary
+  correction table (permuted to wire order), the removed MISC_D output, a
+  91 % fit, and `QuadrupleBuffer_secondary.jic`.  `sim/run_sim.ps1`: all 12
+  tests pass, including `tb_sync` and `tb_dist_secondary`.
+- **Primary** outputs the one-clock `COUNT=0` pulse on `MISC_D`; its suite
+  passes including `tb_carrier_sync`; the primary JIC is regenerated.
 - **Host dual-board support complete (M3/M4 software part).**
   `demo/dual_board.py` and `demo/dual_directional_speaker.py` build both
   frames, send them in parallel, model the combined pattern and report the
   split lobes.  182 Python tests pass.
 - **Not yet done:** flash the secondary, connect `MISC_D`→`MISC_A` and GND,
   measure the 59°/57°/61° levels, decide the gap from the fixture, and add
-  the 50 MHz fine trim / `MISC_C`→`MISC_F` strobe if the measurements need
-  them.
+  the `MISC_C`→`MISC_F` frame strobe if the measurements need it.
 - The `MISC_C` → `MISC_B` strobe in the original plan is not possible:
   `MISC_B` is the UART RX line.  A future strobe needs `MISC_F` or another
   free pin.
