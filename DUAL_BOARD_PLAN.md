@@ -6,6 +6,15 @@
 offset **+5 mm in x and +5 mm in y** (half of the 10 mm lattice pitch); gap
 minimized. Boards are phase-locked with primary `MISC_D` → secondary `MISC_A`.
 
+> **Measured-geometry correction (2026-11-13).**  The Gerber/pick-place data
+> give a **10.5 mm** pitch, a **157.5 mm** element span and a 185.09 ×
+> 168.40 mm PCB, not 10 mm / 150 mm.  The boards are butted at a
+> **36.75 mm** element-centre seam with a **5.25 mm** y offset (the acrylic
+> fixture in `E:\LUIS\IPP\mounting_mechanics`).  The grating direction is
+> therefore **54.75°**, not 59°.  The pre-measurement 5 mm / 10 mm / 59°
+> numbers below are superseded where they conflict; the host code uses the
+> measured values.
+
 **Goal:** a narrow broadside main beam (narrower than ±20° is good) and no
 grating-lobe side leak above 60°. The 5 mm half-pitch offset cancels the four
 axial 59° grating lobes while the broadside field adds in phase.
@@ -39,7 +48,7 @@ secondary table.
 ## 1. Acceptance criteria
 
 1. Both boards emit phase-locked 40 kHz carriers from the same sync source.
-2. The 59° lobes (az 0/90/180/270) are at least **20 dB below the main beam**
+2. The 54.75° lobes (az 0/90/180/270) are at least **20 dB below the main beam**
    in the far field (target **25–30 dB** after trim).
 3. The main beam is broadside, ≤ ±20° (target ~1.5° or narrower).
 4. Above 60° the measured level is at least 20 dB below the main beam
@@ -427,23 +436,24 @@ Report:
 
 ---
 
-## 11. Simulation finding (2026-11-13): the 59° null is a point null
+## 11. Simulation finding (2026-11-13): the grating null is a point null
 
-`demo/dual_board.py` now models the actual 512 positions (5 mm x/y offset,
-configurable gap).  With ideal isotropic elements and uniform phases the
-broadside pattern is:
+`demo/dual_board.py` now models the measured 512 positions (10.5 mm pitch,
+36.75 mm seam, 5.25 mm y offset).  With ideal isotropic elements and uniform
+phases the broadside pattern is:
 
-| Offset | Level at 59.04° (az 0/90/180/270) | Peak sidelobe elsewhere |
+| Offset | Level at 54.75° (az 0/90/180/270) | Peak sidelobe elsewhere |
 |---|---|---|
 | 0 mm | 0.0 dB | 0.0 dB (the grating lobe) |
-| 5 mm x/y | below −200 dB | **≈ −3 dB at 57° and 61°** |
+| 5.25 mm x/y | below −200 dB | **≈ −2 dB at 53° and 57°** |
 
 The half-pitch shift makes the two boards' contributions cancel **exactly**
-at the grating direction, but each board is a 150 mm aperture, so the
+at the grating direction, but each board is a 157.5 mm aperture, so the
 relative phase changes rapidly away from it.  The grating lobe therefore
-splits into two peaks a couple of degrees either side of the null; it is not
+splits into two peaks a few degrees either side of the null; it is not
 removed.  The same happens for any gap because the cancellation is about the
-5 mm offset, not the gap.
+5.25 mm offset, not the gap.  With the measured geometry the split lobe is
+**below 60°**, while the above-60 region is already low.
 
 Consequences:
 
@@ -458,12 +468,12 @@ Consequences:
   the honest metric; `grating_lobe_db` alone is misleading.  The analyzer now
   also reports `far_sidelobe_db`, the peak above `--side-start` (default 60°),
   and models the 10 mm circular piston directivity by default.
-- With directivity, broadside uniform phases give far peak **−18.9 dB** and
-  overall peak −14.0 dB; three far-region optimizer sweeps reach **−20.9 dB**
-  for about −5.4 dB main gain.  Isotropic elements give −3.6 dB, so the
-  piston directivity, not the host weighting, is the main side-leak lever.
-  The optimizer uses a near-sidelobe guard (`--near-weight 0.5`) because
-  targeting >60° alone dumps energy just outside the main lobe.
+- With the measured geometry and directivity, broadside uniform phases give a
+  far peak (above 60°) of **−30.2 dB** and an overall peak of −14.3 dB; three
+  far-region optimizer sweeps reach **−36.7 dB** for about −2.2 dB main gain.
+  The remaining split lobe is near 53°, below the 60° boundary.  The optimizer
+  uses a near-sidelobe guard (`--near-weight 0.5`) because targeting >60°
+  alone dumps energy just outside the main lobe.
 - Removing the grating lobe itself still requires a carrier ≤34.3 kHz, a
   ≤4.3 mm lattice, or an aperiodic layout.  A host taper or optimizer can
   trade main-beam gain against the split lobes but cannot make the lattice
