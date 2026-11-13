@@ -16,7 +16,7 @@ Prime Lite 25.1 and adapted to the PC host in `../demo`.
 | Frame | `0xFE + 256 payload bytes + 0xFD` (see `../demo/protocol.py`) |
 | Payload | low nibble = phase 0..15; high nibble = amplitude code 0..15; `0x10` = OFF |
 | Amplitude | pulse width 1..8 of the 16 carrier steps, centred on the phase; code `0` = legacy full scale |
-| Port D (`MISC_D`) | **COUNT[6]** → 40 kHz, one pulse per carrier period |
+| Port D (`MISC_D`) | **one-clock pulse at `COUNT = 0`** (counts 0 and 128) → 40 kHz carrier-start marker |
 | `PHASE_CORRECTION` | **boardsPrimary** active, boardsSecondary commented out |
 
 ## Changes relative to `../fpga_code`
@@ -28,10 +28,12 @@ Prime Lite 25.1 and adapted to the PC host in `../demo`.
    the upstream primary.
 2. `src/Distribute.vhd` — activated the **boardsPrimary** phase-calibration
    table (the fpga_code build applied the secondary board's table).
-3. `src/QuadrupleBuffer.bdf` — `MISC_D` (port D) moved from `COUNT[7]` to
-   `COUNT[6]`. With 16 phases the carrier period is 128 clk8, so `COUNT[6]`
-   is the 40 kHz carrier-period signal; `COUNT[7]` was 20 kHz and would break
-   the primary→secondary clock sync.
+3. `src/Counter.vhd` + `src/QuadrupleBuffer.bdf` — `MISC_D` (port D) is now
+   a **one-clock pulse at `COUNT = 0`** (counts 0 and 128 of the 8-bit
+   counter), not the old `COUNT[6]` square wave.  With 16 phases the carrier
+   period is 128 clk8, so this marks the exact start of the carrier period;
+   the secondary can synchronize to a known counter value instead of the
+   middle of a square wave.
 4. Project cleanup: removed SignalTap, the EDA testbench, stale
    partition/incremental assignments and the missing `Chain2.cdf` reference.
    The design now fits in 5,416 / 6,272 LEs (86 %) instead of 5,647 (90 %).
@@ -112,6 +114,7 @@ Both were generated from the verified source state.
 | `tb_music_player` | mode 00 pass-through and audio gating |
 | `tb_glue` | UARTReader → RSSFilter → Distribute → PulseExpander → LatchBuffer → AllChannels |
 | `tb_pulseexpander` | no glitch while the input is held high, one clean pulse per input |
+| `tb_carrier_sync` | `MISC_D` source is one clock wide and repeats every 128 counts (25 µs) |
 | `tb_chain_demo1/2/3` | the actual **demo/** frames (`0xFE` + 256 payload bytes + `0xFD`) streamed at 38.4 kBaud, every address/phase checked |
 
 ## Verification performed
@@ -128,9 +131,11 @@ Both were generated from the verified source state.
   width 8 keeps the legacy rise at `p+1`; equal on/off steps are silent.
 - `tb_allchannels`: amplitude code 8 produces a 4-step pulse and code 0 the
   legacy 8-step pulse (measured as consecutive high mux samples).
+- `tb_carrier_sync`: `carrier_sync` is one clock wide, repeats every 128
+  counts, and never stays high for two clocks.
 - `tb_phase_primary`: carrier period **25.000 µs** (40 kHz); programming
   channels 0..7 to `0x10` and swapping makes `DATA(0)` quiet.
-- Gate-level (post-fit `QuadrupleBuffer.vho`): `MISC_D` period **25.000 µs**
+- Gate-level (post-fit `QuadrupleBuffer.vho`): `MISC_D` pulse period **25.000 µs**
   and `DATA(0)` period **25.000 µs**.
 
 ## Notes
@@ -143,4 +148,4 @@ Both were generated from the verified source state.
   `boardsSecondary`, `0xC0` disable / `0xC1` enable, and the top level with
   `MISC_A` (sync input). Do not flash this image to the secondary board.
 - `LED[2]` = board enable, `LED[1]` = frame swap (toggles once per `0xFD`),
-  `LED[3]` = shift-clock enable, `MISC_D` = 40 kHz sync.
+  `LED[3]` = shift-clock enable, `MISC_D` = 40 kHz carrier-start pulse.
