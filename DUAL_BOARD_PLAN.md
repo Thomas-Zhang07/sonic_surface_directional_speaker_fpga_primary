@@ -16,8 +16,8 @@ minimized. Boards are phase-locked with primary `MISC_D` → secondary `MISC_A`.
 > measured values.
 
 **Goal:** a narrow broadside main beam (narrower than ±20° is good) and no
-grating-lobe side leak above 60°. The 5 mm half-pitch offset cancels the four
-axial 59° grating lobes while the broadside field adds in phase.
+grating-lobe side leak above 60°. The 5.25 mm half-pitch offset cancels the
+four axial 54.75° grating lobes while the broadside field adds in phase.
 
 **Current assets**
 
