@@ -455,7 +455,15 @@ Consequences:
   practical peak may be around −15 dB.  This must be measured; it is the
   real side-leak limit of this two-board arrangement.
 - `peak_sidelobe_db` in `CombinedBeamAnalyzer` (whole visible hemisphere) is
-  the honest metric; `grating_lobe_db` alone is misleading.
+  the honest metric; `grating_lobe_db` alone is misleading.  The analyzer now
+  also reports `far_sidelobe_db`, the peak above `--side-start` (default 60°),
+  and models the 10 mm circular piston directivity by default.
+- With directivity, broadside uniform phases give far peak **−18.9 dB** and
+  overall peak −14.0 dB; three far-region optimizer sweeps reach **−20.9 dB**
+  for about −5.4 dB main gain.  Isotropic elements give −3.6 dB, so the
+  piston directivity, not the host weighting, is the main side-leak lever.
+  The optimizer uses a near-sidelobe guard (`--near-weight 0.5`) because
+  targeting >60° alone dumps energy just outside the main lobe.
 - Removing the grating lobe itself still requires a carrier ≤34.3 kHz, a
   ≤4.3 mm lattice, or an aperiodic layout.  A host taper or optimizer can
   trade main-beam gain against the split lobes but cannot make the lattice
