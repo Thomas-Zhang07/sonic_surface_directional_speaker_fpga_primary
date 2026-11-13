@@ -9,8 +9,10 @@ minimized. Boards are phase-locked with primary `MISC_D` → secondary `MISC_A`.
 > **Measured-geometry correction (2026-11-13).**  The Gerber/pick-place data
 > give a **10.5 mm** pitch, a **157.5 mm** element span and a 185.09 ×
 > 168.40 mm PCB, not 10 mm / 150 mm.  The boards are butted at a
-> **36.75 mm** element-centre seam with a **5.25 mm** y offset (the acrylic
-> fixture in `E:\LUIS\IPP\mounting_mechanics`).  The grating direction is
+> **15.75 mm** element-centre seam with a **5.25 mm** y offset, achieved by
+> rotating both boards 90° CCW so the narrow margins face the seam (the
+> acrylic fixture in `E:\LUIS\IPP\mounting_mechanics`, 30 mm ground
+> clearance).  The PCB edge gap is 4.85 mm.  The grating direction is
 > therefore **54.75°**, not 59°.  The pre-measurement 5 mm / 10 mm / 59°
 > numbers below are superseded where they conflict; the host code uses the
 > measured values.
@@ -439,13 +441,13 @@ Report:
 ## 11. Simulation finding (2026-11-13): the grating null is a point null
 
 `demo/dual_board.py` now models the measured 512 positions (10.5 mm pitch,
-36.75 mm seam, 5.25 mm y offset).  With ideal isotropic elements and uniform
+90° rotation, 15.75 mm seam, 5.25 mm y offset).  With ideal isotropic elements and uniform
 phases the broadside pattern is:
 
 | Offset | Level at 54.75° (az 0/90/180/270) | Peak sidelobe elsewhere |
 |---|---|---|
 | 0 mm | 0.0 dB | 0.0 dB (the grating lobe) |
-| 5.25 mm x/y | below −200 dB | **≈ −2 dB at 53° and 57°** |
+| 5.25 mm x/y | below −200 dB | **≈ −3 dB at 53° and 57°** |
 
 The half-pitch shift makes the two boards' contributions cancel **exactly**
 at the grating direction, but each board is a 157.5 mm aperture, so the
@@ -468,9 +470,10 @@ Consequences:
   the honest metric; `grating_lobe_db` alone is misleading.  The analyzer now
   also reports `far_sidelobe_db`, the peak above `--side-start` (default 60°),
   and models the 10 mm circular piston directivity by default.
-- With the measured geometry and directivity, broadside uniform phases give a
-  far peak (above 60°) of **−30.2 dB** and an overall peak of −14.3 dB; three
-  far-region optimizer sweeps reach **−36.7 dB** for about −2.2 dB main gain.
+- With the rotated measured geometry and directivity, broadside uniform phases
+  give a far peak (above 60°) of **−31.3 dB** and an overall peak of −14.9 dB;
+  three far-region optimizer sweeps reach **−37.4 dB** for about −2.0 dB main
+  gain.
   The remaining split lobe is near 53°, below the 60° boundary.  The optimizer
   uses a near-sidelobe guard (`--near-weight 0.5`) because targeting >60°
   alone dumps energy just outside the main lobe.
