@@ -80,7 +80,7 @@ Implementation notes:
 - `PhaseLine.vhd` stores the pair in its existing double buffer and uses two
   4-bit comparators; equal steps mean OFF. Both phase and amplitude switch at
   `0xFD`, so a frame update is atomic.
-- Resource cost: 5,628 / 6,272 LEs (90 %), 4,707 combinational (75 %), 4,819
+- Resource cost: 5,622 / 6,272 LEs (90 %), 4,707 combinational (75 %), 4,819
   registers (77 %). The shared decode keeps the array inside the EP4CE6.
 
 ## Build
@@ -119,7 +119,7 @@ Both were generated from the verified source state.
 
 ## Verification performed
 
-- Quartus fit: successful, 5,628 / 6,272 LE (90 %), 4,819 registers, 44 pins.
+- Quartus fit: successful, 5,622 / 6,272 LE (90 %), 4,819 registers, 44 pins.
 - Full RTL suite (`sim/run_sim.ps1`): **ALL TESTS PASSED**, including
   `tb_chain_demo1/2/3` — the real `demo/` frames are streamed through
   UARTReader → Distribute at 38.4 kBaud and every address/phase matches.
