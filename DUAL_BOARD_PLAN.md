@@ -411,3 +411,57 @@ Report:
    demo distance determines the phase model.
 6. Board-B role: separate secondary firmware vs. a unified build with a strap
    pin. Start with separate builds; unify later if useful.
+
+
+---
+
+## 11. Simulation finding (2026-11-13): the 59° null is a point null
+
+`demo/dual_board.py` now models the actual 512 positions (5 mm x/y offset,
+configurable gap).  With ideal isotropic elements and uniform phases the
+broadside pattern is:
+
+| Offset | Level at 59.04° (az 0/90/180/270) | Peak sidelobe elsewhere |
+|---|---|---|
+| 0 mm | 0.0 dB | 0.0 dB (the grating lobe) |
+| 5 mm x/y | below −200 dB | **≈ −3 dB at 57° and 61°** |
+
+The half-pitch shift makes the two boards' contributions cancel **exactly**
+at the grating direction, but each board is a 150 mm aperture, so the
+relative phase changes rapidly away from it.  The grating lobe therefore
+splits into two peaks a couple of degrees either side of the null; it is not
+removed.  The same happens for any gap because the cancellation is about the
+5 mm offset, not the gap.
+
+Consequences:
+
+- Acceptance criterion 2 ("59° ≥20 dB below the main beam") is met only at
+  the exact 59.04° direction.  Criterion 4 ("above 60° ≥20 dB below") is
+  **not** met by geometry alone in the isotropic model: the 61° peak is near
+  0 dB.
+- The 10 mm piston's directivity attenuates 60° by roughly 15 dB, so the
+  practical peak may be around −15 dB.  This must be measured; it is the
+  real side-leak limit of this two-board arrangement.
+- `peak_sidelobe_db` in `CombinedBeamAnalyzer` (whole visible hemisphere) is
+  the honest metric; `grating_lobe_db` alone is misleading.
+- Removing the grating lobe itself still requires a carrier ≤34.3 kHz, a
+  ≤4.3 mm lattice, or an aperiodic layout.  A host taper or optimizer can
+  trade main-beam gain against the split lobes but cannot make the lattice
+  alias disappear.
+
+## 12. Status at 2026-11-13
+
+- **M1 complete.** `fpga/secondary` has the MISC_A sync input (Counter loads
+  71 to compensate the RSSFilter latency), reversed board select
+  (`0xC1` enables), the secondary correction table (permuted to wire order),
+  the removed MISC_D output, a 90 % fit, and
+  `QuadrupleBuffer_secondary.jic`.  `sim/run_sim.ps1`: all 12 tests pass,
+  including `tb_sync`.
+- **Host dual-board support complete (M3/M4 software part).**
+  `demo/dual_board.py` and `demo/dual_directional_speaker.py` build both
+  frames, send them in parallel, model the combined pattern and report the
+  split lobes.  182 Python tests pass.
+- **Not yet done:** flash the secondary, connect `MISC_D`→`MISC_A` and GND,
+  measure the 59°/57°/61° levels, decide the gap from the fixture, and add
+  the 50 MHz fine trim / `MISC_C`→`MISC_B` strobe if the measurements need
+  them.
