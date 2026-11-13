@@ -108,14 +108,19 @@ The 5 mm x/y offset is relative to the nominal 10 mm lattice.
 | Primary pin | Secondary pin | Purpose |
 |---|---|---|
 | `MISC_D` (PIN_120) | `MISC_A` (PIN_65) | 40 kHz carrier sync (existing) |
-| `MISC_C` (PIN_67, to be added) | `MISC_B` (PIN_60) | Frame-staging/swap strobe (new) |
+| `MISC_C` (PIN_67, to be added) | `MISC_F` (PIN_115) | Frame-staging/swap strobe (new) |
 | GND | GND | Common ground |
 
 Keep the sync cable short and equal-length; verify with a scope that the 40 kHz
 phase jitter is < 100 ns. The primary `MISC_C` is currently only a qsf
 assignment (the fitter reports it does not exist in the design), so adding it
-as an output is a BDF change. The secondary `MISC_B` is already an input pin
-in the BDF.
+as an output is a BDF change.
+
+**`MISC_B` is not available as a strobe input.**  In both BDFs the `MISC_B`
+pin (PIN_60) goes through `RSSFilter_1` into `UARTReader.i_RX_Serial`; it is
+the host UART receive line.  Using it for the strobe would break the
+secondary's serial link.  Use `MISC_F` (PIN_115, assigned but absent from the
+design) as the new strobe input, or another free pin.
 
 ---
 
@@ -139,7 +144,7 @@ design is the common base. Change only the board role:
 | Carrier sync | `MISC_D` (PIN_120) output, COUNT[6] | `MISC_A` (PIN_65) input → Counter `sync_reset` |
 | Board select | `0xC0` enables, `0xC1` disables | `0xC1` enables, `0xC0` disables |
 | `PHASE_CORRECTION` | primary table | secondary table |
-| Frame strobe | `MISC_C` output | `MISC_B` input |
+| Frame strobe | `MISC_C` output | `MISC_F` input (**not** `MISC_B`) |
 | JIC | `QuadrupleBuffer_primary.jic` | `QuadrupleBuffer_secondary.jic` |
 
 Concretely:
@@ -147,7 +152,7 @@ Concretely:
 - **BDF:** add `MISC_A` input and route it to the Counter `sync_reset` (copy the
   net from `fpga/reference/secondary-original/src/QuadrupleBuffer.bdf`). Remove
   or leave the `MISC_D` output unconnected on the secondary; it must not drive
-  the sync cable. Keep the `MISC_B` input for the frame strobe.
+  the sync cable. Keep the `MISC_B` input for the UART; the strobe needs `MISC_F`.
 - **`src/Distribute.vhd`:** reverse the board-select polarity and activate the
   secondary `PHASE_CORRECTION` table. Keep the primary's 4-bit phase nibble,
   `0x10` OFF, amplitude nibble pass-through and 16-phase behavior.
@@ -181,14 +186,15 @@ null. Add a programmable fine delay:
 ### 4.5 Frame-staging/swap strobe
 
 Preferred: primary generates a one-cycle pulse on `MISC_C` when its frame
-trailer (`0xFD`) is received; the secondary receives it on `MISC_B` and swaps
+trailer (`0xFD`) is received; the secondary receives it on `MISC_F` and swaps
 its shadow buffers on the same 40 kHz edge.
 
 - Add `MISC_C` output to the primary BDF (pin currently assigned but absent
   from the design), driven by a registered pulse from the `0xFD`/swap event.
-- Add `MISC_B` input to the secondary BDF, fed into the swap control. Decide
-  whether the secondary's own `0xFD` is ignored (use the strobe only) or
-  whether a double-swap is prevented by edge detection.
+- Add the strobe input on `MISC_F` (PIN_115), **not** `MISC_B`: `MISC_B` is
+  the UART RX line on both boards and cannot be reused.  Feed the strobe into
+  the swap control.  Decide whether the secondary's own `0xFD` is ignored
+  (strobe only) or whether edge detection prevents a double swap.
 - Fallback for the first bring-up: host writes both ports in parallel and
   accepts the ~few-ms skew; add the strobe after the basic two-board beam is
   working.
@@ -393,7 +399,7 @@ Report:
 | Near-field null absent at demo distance | Use spherical-wave focusing; measure at the listening plane; accept near-field trade |
 | Thermal/air drift | Thermal symmetry, draft shield; log drift; re-trim if needed |
 | Fine-delay logic does not fit | The primary fit is 90 %; check the secondary fit early; trim resolution can be traded for range |
-| Frame update transient | Parallel UART first; add MISC_C→MISC_B strobe for atomic swap |
+| Frame update transient | Parallel UART first; add MISC_C→MISC_F strobe for atomic swap |
 | Host/board UART skew | Dual-port parallel writes; optional baud acceleration to 460.8/921.6 kBaud (requires UART divisor changes and host support) |
 
 ---
@@ -401,7 +407,7 @@ Report:
 ## 10. Open decisions
 
 1. Gap: minimize to ~1 cm, or keep 5 cm and rely on a stronger taper?
-2. Frame sync: implement the MISC_C→MISC_B strobe now, or start with parallel
+2. Frame sync: implement the MISC_C→MISC_F strobe now, or start with parallel
    host writes and add the strobe later?
 3. Fine trim: 50 MHz delay counter (0.288°/step) vs. a coarser 5.12 MHz delay
    (2.8°/step). The 50 MHz version is needed for a −30 dB null.
@@ -463,5 +469,8 @@ Consequences:
   split lobes.  182 Python tests pass.
 - **Not yet done:** flash the secondary, connect `MISC_D`→`MISC_A` and GND,
   measure the 59°/57°/61° levels, decide the gap from the fixture, and add
-  the 50 MHz fine trim / `MISC_C`→`MISC_B` strobe if the measurements need
+  the 50 MHz fine trim / `MISC_C`→`MISC_F` strobe if the measurements need
   them.
+- The `MISC_C` → `MISC_B` strobe in the original plan is not possible:
+  `MISC_B` is the UART RX line.  A future strobe needs `MISC_F` or another
+  free pin.
