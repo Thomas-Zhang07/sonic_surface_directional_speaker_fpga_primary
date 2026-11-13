@@ -80,7 +80,7 @@ Implementation notes:
 - `PhaseLine.vhd` stores the pair in its existing double buffer and uses two
   4-bit comparators; equal steps mean OFF. Both phase and amplitude switch at
   `0xFD`, so a frame update is atomic.
-- Resource cost: 5,622 / 6,272 LEs (90 %), 4,707 combinational (75 %), 4,819
+- Resource cost: 5,622 / 6,272 LEs (90 %), 4,710 combinational (75 %), 4,819
   registers (77 %). The shared decode keeps the array inside the EP4CE6.
 
 ## Build
