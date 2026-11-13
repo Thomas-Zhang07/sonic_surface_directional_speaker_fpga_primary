@@ -441,6 +441,13 @@ applicable agreement for further details.
 		(text "clk_out[counter_bits-1..0]" (rect 16 27 227 49)(font "Arial" ))
 		(line (pt 248 32)(pt 232 32)(line_width 3))
 	)
+	(port
+		(pt 248 48)
+		(output)
+		(text "carrier_sync" (rect 0 0 97 22)(font "Arial" ))
+		(text "carrier_sync" (rect 65 43 162 65)(font "Arial" ))
+		(line (pt 248 48)(pt 232 48))
+	)
 	(parameter
 		"COUNTER_BITS"
 		"8"
@@ -450,6 +457,18 @@ applicable agreement for further details.
 		(rectangle (rect 16 16 232 64))
 	)
 	(annotation_block (parameter)(rect -104 -256 100 -228))
+)
+(connector
+	(pt 128 -176)
+	(pt 504 -176)
+)
+(connector
+	(pt 504 -176)
+	(pt 504 -120)
+)
+(connector
+	(pt 504 -120)
+	(pt 584 -120)
 )
 (symbol
 	(rect -320 392 -152 472)
@@ -1035,15 +1054,6 @@ applicable agreement for further details.
 	(text "RST" (rect -456 -176 -407 -154)(font "Arial" ))
 	(pt -368 -160)
 	(pt -464 -160)
-)
-(connector
-	(pt 504 -120)
-	(pt 504 -128)
-)
-(connector
-	(text "COUNT[6]" (rect 512 -136 621 -114)(font "Arial" ))
-	(pt 584 -120)
-	(pt 504 -120)
 )
 (connector
 	(text "CLK_8" (rect -248 -16 -174 6)(font "Arial" ))

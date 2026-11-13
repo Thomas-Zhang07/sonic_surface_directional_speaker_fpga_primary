@@ -8,7 +8,9 @@ entity Counter is
     port (
         clk_in : in  STD_LOGIC;
 		  sync_reset : in STD_LOGIC;
-        clk_out: out STD_LOGIC_VECTOR (COUNTER_BITS-1 downto 0)
+        clk_out: out STD_LOGIC_VECTOR (COUNTER_BITS-1 downto 0);
+		  -- One clk_in-wide pulse at the start of every carrier period.
+		  carrier_sync : out STD_LOGIC := '0'
 	 );
 end Counter;
 
@@ -26,6 +28,13 @@ begin
 				end if;
         end if;
     end process;
-    
+
     clk_out <= sCounter;
+
+	 -- The carrier is 16 steps x 8 clk8 = 128 counts, so the phase-0 slot
+	 -- begins whenever the low seven bits are zero (counts 0 and 128 of the
+	 -- 8-bit counter).  This is the timing reference sent to the secondary:
+	 -- an exact one-clock pulse at a known counter value, unlike the old
+	 -- COUNT[6] square wave whose rising edge sat in the middle of a period.
+	 carrier_sync <= '1' when sCounter(6 downto 0) = "0000000" else '0';
 end Behavioral;

@@ -44,6 +44,13 @@ applicable agreement for further details.
 		(text "clk_out[counter_bits-1..0]" (rect 130 27 227 39)(font "Arial" ))
 		(line (pt 248 32)(pt 232 32)(line_width 3))
 	)
+	(port
+		(pt 248 48)
+		(output)
+		(text "carrier_sync" (rect 0 0 50 12)(font "Arial" ))
+		(text "carrier_sync" (rect 65 43 115 55)(font "Arial" ))
+		(line (pt 248 48)(pt 232 48)(line_width 1))
+	)
 	(parameter
 		"COUNTER_BITS"
 		"8"

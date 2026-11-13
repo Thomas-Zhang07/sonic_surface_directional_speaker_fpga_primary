@@ -51,7 +51,8 @@ $sources = @(
     (Join-Path $sim  'tb_glue.vhd'),
     (Join-Path $sim  'tb_pulseexpander.vhd'),
     (Join-Path $sim  'tb_dist_primary.vhd'),
-    (Join-Path $sim  'tb_phase_primary.vhd')
+    (Join-Path $sim  'tb_phase_primary.vhd'),
+    (Join-Path $sim  'tb_carrier_sync.vhd')
 )
 
 Write-Host 'Compiling...'
@@ -83,6 +84,7 @@ Run-TB -Top 'tb_allchannels'   -RunTime '2 ms'   -Label 'tb_allchannels'
 Run-TB -Top 'tb_music_player'  -RunTime '700 ms' -Label 'tb_music_player'
 Run-TB -Top 'tb_glue'          -RunTime '2 ms'   -Label 'tb_glue'
 Run-TB -Top 'tb_pulseexpander' -RunTime '20 us'  -Label 'tb_pulseexpander'
+Run-TB -Top 'tb_carrier_sync' -RunTime '20 us'  -Label 'tb_carrier_sync'
 
 foreach ($demo in @('demo1', 'demo2', 'demo3')) {
     Copy-Item (Join-Path $work "frame_$demo.txt") (Join-Path $work 'frame_input.txt') -Force
